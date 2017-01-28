@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block content %}
+<script type="text/JavaScript">
+
+function updateAttributes(attributes)
+{
+  try {
+    var json_obj = JSON.parse(attributes);
+  } catch (err) {
+    return;
+  }
+  document.getElementById("fwVersion").innerHTML = json_obj.version;
+  document.getElementById("status").innerHTML = json_obj.system_status.state;
+  document.getElementById("mode").innerHTML = json_obj.mode.name;
+  document.getElementById("isArmable").innerHTML = json_obj.is_armable;
+  document.getElementById("armed").innerHTML = json_obj.armed;
+  document.getElementById("altitude").innerHTML = json_obj.location.global_relative_frame.alt;
+   document.getElementById("battery").innerHTML = json_obj.battery.level;
+}
+
+function httpGet(theUrl, callback)
+{
+    //console.log('httpGet');
+    if (window.XMLHttpRequest)
+    {// code for IE7+, Firefox, Chrome, Opera, Safari
+        xmlhttp=new XMLHttpRequest();
+    }
+    else
+    {// code for IE6, IE5
+        xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+    }
+    xmlhttp.onreadystatechange=function()
+    {
+        if (xmlhttp.readyState==4 && xmlhttp.status==200)
+        {
+            if (callback != null) {
+              callback(xmlhttp.responseText);
+            }
+        }
+    }
+    xmlhttp.open("GET", theUrl, false );
+    xmlhttp.send();    
+}
+
+function takeOff()
+{
+  //console.log("takeoff");
+  httpGet("/takeoff", null);
+}
+
+function land()
+{
+  //console.log("takeoff");
+  //document.getElementById("takeOffButton").disabled = false;
+  //document.getElementById("landButton").disabled = true;
+  httpGet("/land", null);
+}
+
+function updatePage()
+{
+  //console.log("updatePage");
+  httpGet('/attributes', updateAttributes);
+}
+
+setInterval(function(){
+   //console.log("Update")
+   updatePage();
+}, 2000); /* time in milliseconds (ie 2 seconds)*/
+
+</script>
+    <h1>Hi, {{ user.name }}!</h1>
+    <div class="droneInfo">Drone information
+      <div>Identifier: {{ drone.identifier }}</div>
+      <div>Simulator: {{ drone.use_simulator}}</div>
+      <div>Connection: {{ drone.connection_string }}</div>
+      <div>Baud: {{ drone.baud_rate}}</div>
+      <div>Autopilot Firmware version: <span id="fwVersion">Unknown</span></div>
+    </div>
+    <div class="systemInfo">System
+      <div>status: <span id="status">...</span></div>
+      <div>System mode: <span id="mode">...</span></div>
+      <div>Is armable: <span id="isArmable">false</span></div>
+      <div>Armed: <span id="armed">false</span></div>
+    </div>
+    <div class="statusInfo">
+      <div>Altitude: <span id="altitude">0.0</span></div>
+      <div>Battery: <span id="battery">...</span></div>
+    </div>
+    
+    <div class="control">
+      <button id="takeOffButton" type="button" onclick="takeOff();">Take Off</button>
+      <button id="landButton" type="button" onclick="land();">Land</button>
+    </div>
+{% endblock %}
