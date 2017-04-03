@@ -1,13 +1,68 @@
 {% extends "base.html" %}
 {% block content %}
+<link rel="stylesheet" type="text/css" href="static/css/spinner.css">
+<link rel="stylesheet" href="https://openlayers.org/en/v3.20.1/css/ol.css" type="text/css">
+<link rel="stylesheet" type="text/css" href="static/fi/css/flightindicators.css"/>
+<script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+<script src="static/fi/js/jquery.flightindicators.min.js"></script>
+<script src="https://openlayers.org/en/v3.20.1/build/ol.js" type="text/javascript"></script>
+<style>
+  .map {
+    height: 400px;
+    width: 100%;
+  }
+</style>
 <script type="text/JavaScript">
+
+var attitude = null;
+var heading = null;
+var variometer = null;
+var airspeed = null;
+var altimeter = null;
+var map = null;
+
+var iconFeature = new ol.Feature({
+  geometry: new ol.geom.Point([0, 0]),
+  name: 'Null Island',
+  population: 4000,
+  rainfall: 500
+});
+
+var iconStyle = new ol.style.Style({
+  image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+    anchor: [0.5, 46],
+    anchorXUnits: 'fraction',
+    anchorYUnits: 'pixels',
+    opacity: 0.75,
+    src: 'static/img/droneMarker.png'
+  }))
+});
+
+iconFeature.setStyle(iconStyle);
+
+var vectorSource = new ol.source.Vector({
+  features: [iconFeature]
+});
+
+var vectorLayer = new ol.layer.Vector({
+  source: vectorSource
+});
+
+function connected(response) {
+  document.getElementById("contentDiv").style.display = 'block';
+  document.getElementById("loaderDiv").style.display = 'none';
+  setInterval(function(){
+   //console.log("Update")
+   updatePage();
+  }, 50); /* time in milliseconds (ie 2 seconds)*/
+}
 
 function updateAttributes(attributes)
 {
   try {
-    var json_obj = JSON.parse(attributes);
+     var json_obj = JSON.parse(attributes);
   } catch (err) {
-    return;
+     return;
   }
   document.getElementById("fwVersion").innerHTML = json_obj.version;
   document.getElementById("status").innerHTML = json_obj.system_status.state;
@@ -15,7 +70,56 @@ function updateAttributes(attributes)
   document.getElementById("isArmable").innerHTML = json_obj.is_armable;
   document.getElementById("armed").innerHTML = json_obj.armed;
   document.getElementById("altitude").innerHTML = json_obj.location.global_relative_frame.alt;
-   document.getElementById("battery").innerHTML = json_obj.battery.level;
+  document.getElementById("battery").innerHTML = json_obj.battery.level;
+  document.getElementById("headingStatus").innerHTML = json_obj.heading;
+
+  // Meter updates
+  attitude.setRoll(json_obj.attitude.roll);
+  attitude.setPitch(json_obj.attitude.pitch);
+
+
+  // Heading update
+  heading.setHeading(json_obj.heading);
+
+  // Vario update (100 feet / minute)
+  variometer.setVario((60 * 3.28084 * json_obj.velocity[2]) / 100);
+
+  // Airspeed update (knts)
+  airspeed.setAirSpeed(1.9438444924574 * json_obj.airspeed);
+
+  // Altimeter update (feet)
+  altimeter.setAltitude(3.28084 * json_obj.location.global_relative_frame.alt);
+  altimeter.setPressure(0);
+
+  // Map updates
+  document.getElementById('mapVehicleLocationContent').innerHTML = "Longitude: " + json_obj.location.global_relative_frame.lat + "<br>Latitude: " + json_obj.location.global_relative_frame.lon + "<br> Altitude: " + json_obj.location.global_relative_frame.alt;
+  var lon = json_obj.location.global_relative_frame.lon;
+  var lat = json_obj.location.global_relative_frame.lat;
+  if (map == null) {
+    map = new ol.Map({
+    target: 'map',
+    layers: [
+        new ol.layer.Tile({
+          source: new ol.source.OSM()
+        }),
+        vectorLayer
+      ],
+    view: new ol.View({
+      center: ol.proj.fromLonLat([lon, lat]),
+        zoom: 17
+      })
+    });
+  } else {
+    map.getView().setCenter(ol.proj.transform([lon, lat], 'EPSG:4326', 'EPSG:3857'));
+    //map.getView().setRotate(json_obj.heading);
+  }
+  iconFeature.getGeometry().setCoordinates(ol.proj.transform([lon, lat], 'EPSG:4326', 'EPSG:3857'));
+  var vehicleLocation = new ol.Overlay({
+  geometry: new ol.geom.Point([0, 0]),
+  element: document.getElementById('mapVehicleLocation')
+});
+  map.addOverlay(vehicleLocation);
+  vehicleLocation.setPosition(ol.proj.transform([lon, lat], 'EPSG:4326', 'EPSG:3857'));
 }
 
 function httpGet(theUrl, callback)
@@ -39,7 +143,7 @@ function httpGet(theUrl, callback)
         }
     }
     xmlhttp.open("GET", theUrl, false );
-    xmlhttp.send();    
+    xmlhttp.send();
 }
 
 function takeOff()
@@ -56,39 +160,95 @@ function land()
   httpGet("/land", null);
 }
 
+function fly()
+{
+  httpGet("fly", null);
+}
+
+function rtl()
+{
+  httpGet("rtl", null)
+}
+
 function updatePage()
 {
   //console.log("updatePage");
   httpGet('/attributes', updateAttributes);
 }
 
-setInterval(function(){
-   //console.log("Update")
-   updatePage();
-}, 2000); /* time in milliseconds (ie 2 seconds)*/
+window.onbeforeunload = function() {
+  httpGet("/disconnect", null);
+}
+
+function connect()
+{
+  document.getElementById("loaderDiv").style.display = 'block';
+  httpGet("/connect", connected);
+}
+
+document.onreadystatechange = function(){
+
+  attitude = $.flightIndicator('#attitude', 'attitude', {roll:50, pitch:-20, size:200, showBox : false, img_directory : 'static/fi/img/'});
+  heading = $.flightIndicator('#heading', 'heading', {heading:150, showBox:false, img_directory : 'static/fi/img/'});
+  variometer = $.flightIndicator('#variometer', 'variometer', {vario:-5, showBox:false, img_directory : 'static/fi/img/'});
+  airspeed = $.flightIndicator('#airspeed', 'airspeed', {showBox: false, img_directory : 'static/fi/img/'});
+  altimeter = $.flightIndicator('#altimeter', 'altimeter', {showBox: false, img_directory : 'static/fi/img/'});
+
+  document.getElementById("loaderDiv").style.display = 'block';
+  if(document.readyState === 'complete'){
+    connect();
+  }
+}
 
 </script>
-    <h1>Hi, {{ user.name }}!</h1>
-    <div class="droneInfo">Drone information
-      <div>Identifier: {{ drone.identifier }}</div>
-      <div>Simulator: {{ drone.use_simulator}}</div>
-      <div>Connection: {{ drone.connection_string }}</div>
-      <div>Baud: {{ drone.baud_rate}}</div>
-      <div>Autopilot Firmware version: <span id="fwVersion">Unknown</span></div>
-    </div>
-    <div class="systemInfo">System
-      <div>status: <span id="status">...</span></div>
-      <div>System mode: <span id="mode">...</span></div>
-      <div>Is armable: <span id="isArmable">false</span></div>
-      <div>Armed: <span id="armed">false</span></div>
-    </div>
-    <div class="statusInfo">
-      <div>Altitude: <span id="altitude">0.0</span></div>
-      <div>Battery: <span id="battery">...</span></div>
-    </div>
-    
-    <div class="control">
-      <button id="takeOffButton" type="button" onclick="takeOff();">Take Off</button>
-      <button id="landButton" type="button" onclick="land();">Land</button>
+    <div id="loaderDiv" class="loader" style="display: block"></div>
+
+    <div id="contentDiv" style="display: none;">
+      <h1>Hi, {{ user.name }}!</h1>
+      <div class="droneInfo">Drone information
+        <div>Identifier: {{ drone.identifier }}</div>
+        <div>Simulator: {{ drone.use_simulator}}</div>
+        <div>Connection: {{ drone.connection_string }}</div>
+        <div>Baud: {{ drone.baud_rate}}</div>
+        <div>Autopilot Firmware version: <span id="fwVersion">Unknown</span></div>
+      </div>
+
+      <div class="systemInfo">System
+        <div>status: <span id="status">...</span></div>
+        <div>System mode: <span id="mode">...</span></div>
+        <div>Is armable: <span id="isArmable">false</span></div>
+        <div>Armed: <span id="armed">false</span></div>
+      </div>
+
+      <div class="statusInfo">
+        <div>Altitude: <span id="altitude">0.0</span></div>
+        <div>Heading: <span id="headingStatus">...</span></div>
+        <div>Battery: <span id="battery">...</span></div>
+      </div>
+
+      <div class="control">
+        <button id="takeOffButton" type="button" onclick="takeOff();">
+          Take Off
+        </button>
+        <button id="landButton" type="button" onclick="land();">
+          Land
+        </button>
+        <button id="flyButton" type="button" onclick="fly();">
+          Fly
+        </button>
+        <button id="rtlButton" type="button" onclick="rtl();">
+          RTL
+        </button>
+      </div>
+      <div>
+        <span id="attitude"></span>
+        <span id="heading"></span>
+        <span id="variometer"></span>
+        <span id="airspeed"></span>
+        <span id="altimeter"></span>
+      </div>
+      <div id="map" class="map">
+        <div id="mapVehicleLocation"><span id='mapVehicleLocationContent'></span></div>
+      </div>
     </div>
 {% endblock %}

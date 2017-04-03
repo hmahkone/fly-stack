@@ -1,4 +1,5 @@
-from dronekit import connect, VehicleMode
+from dronekit import connect, VehicleMode, Vehicle, LocationGlobalRelative
+from pymavlink import mavutil
 import time
 import config
 import json
@@ -24,10 +25,14 @@ class Drone():
     self.connection_string = config.CONNECTION_STRING
     self.baud_rate = config.BAUD_RATE
 
+  def radio_status(self, attr_name, value):
+    print "RADIO_STATUS: %s" % value
+
   def connect(self):
     self.vehicle = connect(self.connection_string, wait_ready=True,
                            baud=self.baud_rate)
     return "CONNECTED"
+
 
   def disconnect(self):
     if self.vehicle:
@@ -38,6 +43,7 @@ class Drone():
   def get_attributes(self):
     if self.vehicle == None:
       return "DISCONNECTED"
+
     attributes = json.loads("{}")
     attributes['version'] = str(self.vehicle.version)
     attributes['groundspeed'] = self.vehicle.groundspeed
@@ -67,13 +73,13 @@ class Drone():
     global_frame['lon'] = self.vehicle.location.global_frame.lon
     global_frame['alt'] = self.vehicle.location.global_frame.alt
     location['global_frame'] = global_frame
-    
+
     global_relative_frame = json.loads("{}")
     global_relative_frame['lat'] = self.vehicle.location.global_relative_frame.lat
     global_relative_frame['lon'] = self.vehicle.location.global_relative_frame.lon
     global_relative_frame['alt'] = self.vehicle.location.global_relative_frame.alt
     location['global_relative_frame'] = global_relative_frame
-     
+
     local_frame = json.loads("{}")
     local_frame['north'] = self.vehicle.location.local_frame.north
     local_frame['east'] = self.vehicle.location.local_frame.east
@@ -109,8 +115,23 @@ class Drone():
     rangefinder['voltage'] = self.vehicle.rangefinder.voltage
     attributes['rangefinder'] = rangefinder
 
+    channels = json.loads("{}")
+    channels['channels'] = self.vehicle.channels
+    channels['rssi'] = self.vehicle.channels.rssi
+    attributes['channels'] = channels
+
+    radio_status = json.loads("{}")
+    radio_status['rssi'] = self.vehicle.radio_status.rssi
+    radio_status['remrssi'] = self.vehicle.radio_status.remrssi
+    radio_status['txbuf'] = self.vehicle.radio_status.txbuf
+    radio_status['noise'] = self.vehicle.radio_status.noise
+    radio_status['remnoise'] = self.vehicle.radio_status.remnoise
+    radio_status['rxerrors'] = self.vehicle.radio_status.rxerrors
+    radio_status['fixed'] = self.vehicle.radio_status.fixed
+    attributes['radio_status'] = radio_status
+
     return json.dumps(attributes)
-    
+
   def attributes(self):
     # Get some vehicle attributes (state)
     print "Get some vehicle attribute values:"
@@ -181,7 +202,7 @@ class Drone():
         time.sleep(1)
     """
     return "ASCENDING"
-    
+
 
   def land(self):
     print "Landing!"
@@ -202,6 +223,37 @@ class Drone():
     """
     return "DESCENDING"
 
+  def fly_to(self):
+    point1 = LocationGlobalRelative(-35.359980, 149.165014, 20)
+    self.vehicle.airspeed = 15
+
+    print "Fly to: %s" % point1
+    self.vehicle.simple_goto(point1)
+    print "FLYING"
+
+  def return_to_launch(self):
+    self.vehicle.mode = VehicleMode("RTL")
+    return "RTL, INITIATED"
+
+  def condition_yaw(self, heading, relative=False):
+    if relative:
+      is_relative=1 #yaw relative to direction of travel
+    else:
+      is_relative=0 #yaw is an absolute angle
+    # create the CONDITION_YAW command using command_long_encode()
+    msg = self.vehicle.message_factory.command_long_encode(
+          0, 0,    # target system, target component
+          mavutil.mavlink.MAV_CMD_CONDITION_YAW, #command
+          0, #confirmation
+          heading,    # param 1, yaw in degrees
+          0,          # param 2, yaw speed deg/s
+          1,          # param 3, direction -1 ccw, 1 cw
+          is_relative, # param 4, relative offset 1, absolute angle 0
+          0, 0, 0)    # param 5 ~ 7 not used
+    # send command to vehicle
+    self.vehicle.send_mavlink(msg)
+    return "TURNING"
+
 from simulator import Simulator
 if __name__ == "__main__":
   d = Drone()
@@ -212,5 +264,5 @@ if __name__ == "__main__":
 
   #d.takeoff()
   #d.land()
-  
+
   d.disconnect()

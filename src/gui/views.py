@@ -42,6 +42,23 @@ def land():
   print "land"
   return g.drone.land()
 
+@gui.route('/fly')
+#@login_required
+def fly():
+  print "fly to"
+  return g.drone.fly_to()
+
+@gui.route('/rtl')
+#@login_required
+def rtl():
+  print "RTL"
+  return g.drone.return_to_launch()
+
+@gui.route('/heading/<int:heading>', methods=['POST'])
+def heading(heading):
+  print "Heading: %d" % heading
+  return g.drone.condition_yaw(heading)
+
 @gui.route('/')
 @gui.route('/index')
 #@login_required
@@ -77,7 +94,7 @@ def register():
 @gui.route('/map', methods=['GET'])
 def map():
   return render_template("map.html", drone=drone)
-  
+
 @gui.route('/login', methods=['GET', 'POST'])
 def login():
   if g.user is not None and g.user.is_authenticated:

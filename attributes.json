@@ -1,0 +1,86 @@
+{
+  "last_hearbeat": 0.055696941999485716, 
+  "gimbal": {
+    "yaw": null, 
+    "roll": null, 
+    "pitch": null
+  }, 
+  "radio_status": {
+    "noise": null, 
+    "remrssi": null, 
+    "rxerrors": null, 
+    "remnoise": null, 
+    "rssi": null, 
+    "fixed": null, 
+    "txbuf": null
+  }, 
+  "battery": {
+    "current": 0.0, 
+    "voltage": 12.587, 
+    "level": 69
+  }, 
+  "groundspeed": 0.0, 
+  "velocity": [
+    0.02, 
+    -0.02, 
+    0.0
+  ], 
+  "is_armable": true, 
+  "capabilities": {
+    "ftp": false
+  }, 
+  "airspeed": 0.0, 
+  "channels": {
+    "channels": {
+      "1": 1500, 
+      "3": 1000, 
+      "2": 1500, 
+      "5": 1800, 
+      "4": 1500, 
+      "7": 1000, 
+      "6": 1000, 
+      "8": 1800
+    }, 
+    "rssi": 0
+  }, 
+  "system_status": {
+    "state": "STANDBY"
+  }, 
+  "attitude": {
+    "yaw": -0.12893390655517578, 
+    "roll": -0.005495930090546608, 
+    "pitch": -0.0022135854233056307
+  }, 
+  "version": "APM:Copter-3.3.0", 
+  "gps_0": {
+    "fix": 3, 
+    "num_sat": 10
+  }, 
+  "mode": {
+    "name": "LAND"
+  }, 
+  "ekf_ok": true, 
+  "rangefinder": {
+    "distance": null, 
+    "voltage": null
+  }, 
+  "armed": false, 
+  "heading": 352, 
+  "location": {
+    "local_frame": {
+      "down": 1.702826738357544, 
+      "east": 0.0692133978009224, 
+      "north": -0.0008956260862760246
+    }, 
+    "global_frame": {
+      "lat": -35.3632608, 
+      "alt": 584.09, 
+      "lon": 149.1652299
+    }, 
+    "global_relative_frame": {
+      "lat": -35.3632608, 
+      "alt": 0.0, 
+      "lon": 149.1652299
+    }
+  }
+}
